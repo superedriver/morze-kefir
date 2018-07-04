@@ -1,0 +1,17 @@
+.App {
+  text-align: center;
+}
+
+.rectangle {
+  display: inline-block;
+  height: 50px;
+  width: 200px;
+}
+
+.-red {
+  background-color: red;
+}
+
+.-green {
+  background-color: green;
+}
