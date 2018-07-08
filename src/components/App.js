@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import Kefir from 'kefir';
 import './App.css';
 import morse from '../morze.png'
 import {
@@ -12,14 +13,12 @@ import {
 
 // additional code
 const getSymbol = symbolDuration => symbolDuration <= DOT_DURATION ? DOT : DASH;
-const isPauseShort = pause => pause < DOT_DURATION;
+const isPauseLong = pauseDuration => pauseDuration > DOT_DURATION;
+// const isNeededKey = ({ keyCode }) => keyCode === BUTTON_CODE;
+
 const INITIAL_STATE = {
-  symbol: '',
-  letterCode: '',
   word: '',
-  startKeyDown: null,
-  startKeyUp: null,
-  pauseTimerId: null,
+  isKeyPressed: false,
 };
 
 class App extends Component {
@@ -29,105 +28,36 @@ class App extends Component {
 
     this.state = INITIAL_STATE;
 
-    this.handleSpaceDown = this.handleSpaceDown.bind(this);
-    this.handleSpaceUp = this.handleSpaceUp.bind(this);
     this.handleClearClick = this.handleClearClick.bind(this);
-    this.updateLetter = this.updateLetter.bind(this);
     this.updateWord = this.updateWord.bind(this);
-    this.getLetter = this.getLetter.bind(this);
-    this.handlePauseTimeoutEnd = this.handlePauseTimeoutEnd.bind(this);
   }
 
   componentWillMount() {
-    document.addEventListener('keydown', this.handleSpaceDown);
-    document.addEventListener('keyup', this.handleSpaceUp);
+    const keyDownTime$ = Kefir.fromEvents(document, `mousedown`)
+      .map(_ => Date.now());
+    const keyUpTime$ = Kefir.fromEvents(document, `mouseup`)
+      .map(_ => Date.now());
+
+    const symbolDelay$ = keyDownTime$
+      .flatMapLatest(startTime => keyUpTime$.map(endTime => endTime - startTime));
+    symbolDelay$.log();
+    const pauseDelay$ = keyUpTime$
+      .flatMapLatest(startTime => keyDownTime$.map(endTime => endTime - startTime));
+
+    const symbol$ = symbolDelay$.map(getSymbol);
+    const longPauses$ = pauseDelay$.filter(isPauseLong);
+    const letterCode$ = symbol$.bufferBy(longPauses$);
+    letterCode$.onValue(this.updateWord);
   }
 
-  componentWillUnmount() {
-    document.removeEventListener('keydown', this.handleSpaceDown);
-    document.removeEventListener('keyup', this.handleSpaceUp);
-  }
-
-  getLetter() {
-    const { symbol, letterCode } = this.state;
-
-    return CODE_TO_LETTER[letterCode + symbol] || ERROR;
-  }
-
-  updateLetter(e) {
-    const { symbol, letterCode } = this.state;
+  updateWord(letterCode) {
+    const { word } = this.state;
+    const letter = CODE_TO_LETTER[letterCode.join('')] || ERROR;
 
     this.setState({
       ...this.state,
-      startKeyDown: e.timeStamp,
-      startKeyUp: null,
-      symbol: '',
-      letterCode: letterCode + symbol,
-    });
-  }
-
-  updateWord(e) {
-    const { word } = this.state;
-    const letter = this.getLetter();
-
-    this.setState({
-      ...this.state,
-      startKeyDown: e.timeStamp,
-      startKeyUp: null,
-      symbol: '',
-      letterCode: '',
       word: word + letter,
     });
-  }
-
-  handleSpaceDown(e) {
-    if(e.keyCode === BUTTON_CODE) {
-      const { startKeyUp, startKeyDown, pauseTimerId } = this.state;
-
-      if(pauseTimerId) {
-        clearTimeout(pauseTimerId)
-      }
-
-      if (!startKeyDown && startKeyUp) {
-        const pauseDuration = e.timeStamp - startKeyUp;
-
-        if(isPauseShort(pauseDuration)) {
-          this.updateLetter(e);
-        } else {
-          this.updateWord(e);
-        }
-      } else if (!startKeyDown && !startKeyUp) {
-        this.setState({
-          ...this.state,
-          startKeyDown: e.timeStamp,
-        });
-      }
-    }
-  }
-
-  handlePauseTimeoutEnd() {
-    const { word } = this.state;
-    const letter = this.getLetter();
-
-    this.setState({
-      ...INITIAL_STATE,
-      word: word + letter,
-    });
-  }
-
-  handleSpaceUp(e) {
-    if(e.keyCode === BUTTON_CODE) {
-      const startKeyUp = e.timeStamp;
-      const { startKeyDown } = this.state;
-      const symbol = getSymbol(startKeyUp - startKeyDown);
-
-      this.setState({
-        startKeyDown: null,
-        startKeyUp,
-        symbol,
-        pauseTimerId: setTimeout(this.handlePauseTimeoutEnd, DOT_DURATION),
-      });
-    }
   }
 
   handleClearClick() {
@@ -135,8 +65,8 @@ class App extends Component {
   }
 
   render() {
-    const { word, startKeyDown } = this.state;
-    const rectClassName = startKeyDown
+    const { word, isKeyPressed } = this.state;
+    const rectClassName = isKeyPressed
       ? '-red'
       : '-green';
 
