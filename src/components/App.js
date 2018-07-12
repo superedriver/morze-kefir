@@ -14,7 +14,7 @@ import {
 // additional code
 const getSymbol = symbolDuration => symbolDuration <= DOT_DURATION ? DOT : DASH;
 const isPauseLong = pauseDuration => pauseDuration > DOT_DURATION;
-// const isNeededKey = ({ keyCode }) => keyCode === BUTTON_CODE;
+const isNeededKey = ({ keyCode }) => keyCode === BUTTON_CODE;
 
 const INITIAL_STATE = {
   word: '',
@@ -33,21 +33,36 @@ class App extends Component {
   }
 
   componentWillMount() {
-    const keyDownTime$ = Kefir.fromEvents(document, `mousedown`)
+    const keyDownTime$ = Kefir.fromEvents(document, `keydown`)
+      .filter(isNeededKey)
       .map(_ => Date.now());
-    const keyUpTime$ = Kefir.fromEvents(document, `mouseup`)
-      .map(_ => Date.now());
+    // --tD-tD-tD-tD-----tD-tD----- tD - timestamp Down
 
-    const symbolDelay$ = keyDownTime$
-      .flatMapLatest(startTime => keyUpTime$.map(endTime => endTime - startTime));
+    const keyUpTime$ = Kefir.fromEvents(document, `keyup`)
+      .filter(isNeededKey)
+      .map(_ => Date.now());
+    // --------------tU--------tU--------- timestamp Up
+    const firstKeyDownTime$ = keyDownTime$
+      .bufferBy(keyUpTime$)
+      .map(keyDownArray => keyDownArray[0]);
+    // --tD-tD-tD-tD-----tD-tD-----
+    // -[tD-tD-tD-tD]---[tD-tD]----
+    // --tD--------------tD--------
+
+    const symbolDelay$ = firstKeyDownTime$
+      // .flatMapLatest(downTime => keyUpTime$.map(upTime => upTime - downTime));
+      .flatMapLatest(downTime => {
+        console.log("------------------");
+        console.log(downTime);
+        return keyUpTime$.map(upTime => {
+          console.log("++++++++++++++++++");
+          console.log(upTime);
+          return upTime - downTime;
+        })
+      });
+    // ----------------tS--------tS---------  time Symbol
     symbolDelay$.log();
-    const pauseDelay$ = keyUpTime$
-      .flatMapLatest(startTime => keyDownTime$.map(endTime => endTime - startTime));
 
-    const symbol$ = symbolDelay$.map(getSymbol);
-    const longPauses$ = pauseDelay$.filter(isPauseLong);
-    const letterCode$ = symbol$.bufferBy(longPauses$);
-    letterCode$.onValue(this.updateWord);
   }
 
   updateWord(letterCode) {
