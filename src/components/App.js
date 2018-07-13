@@ -33,21 +33,24 @@ class App extends Component {
   }
 
   componentWillMount() {
-    const keyDownTime$ = Kefir.fromEvents(document, `mousedown`)
-      .map(_ => Date.now());
-    const keyUpTime$ = Kefir.fromEvents(document, `mouseup`)
-      .map(_ => Date.now());
+    const keyDown$ = Kefir.fromEvents(document, `mousedown`)
+      .map(_ => ({
+        action: 'D',
+        timestamp: Date.now()
+      }));
+    const keyUp$ = Kefir.fromEvents(document, `mouseup`)
+      .map(_ => ({
+        action: 'U',
+        timestamp: Date.now()
+      }));
+    const action$ = keyDown$.merge(keyUp$);
+    const longPauses$ = action$.debounce(DOT_DURATION * 3).filter(e => e.action === 'U');
 
-    const symbolDelay$ = keyDownTime$
-      .flatMapLatest(startTime => keyUpTime$.map(endTime => endTime - startTime));
-    symbolDelay$.log();
-    const pauseDelay$ = keyUpTime$
-      .flatMapLatest(startTime => keyDownTime$.map(endTime => endTime - startTime));
+    const symbolDelay$ = keyDown$
+      .flatMapLatest(start => keyUp$.map(end => end.timestamp - start.timestamp));
 
     const symbol$ = symbolDelay$.map(getSymbol);
-    const longPauses$ = pauseDelay$.filter(isPauseLong);
-    const letterCode$ = symbol$.bufferBy(longPauses$);
-    letterCode$.onValue(this.updateWord);
+    symbol$.bufferBy(longPauses$).onValue(this.updateWord);
   }
 
   updateWord(letterCode) {
