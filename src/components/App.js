@@ -10,11 +10,12 @@ import {
   DOT_DURATION,
   BUTTON_CODE,
 } from '../constants';
+const DOWN = 'D';
+const UP = 'U';
 
 // additional code
 const getSymbol = symbolDuration => symbolDuration <= DOT_DURATION ? DOT : DASH;
-const isPauseLong = pauseDuration => pauseDuration > DOT_DURATION;
-// const isNeededKey = ({ keyCode }) => keyCode === BUTTON_CODE;
+const isNeededKey = ({ keyCode }) => keyCode === BUTTON_CODE;
 
 const INITIAL_STATE = {
   word: '',
@@ -33,24 +34,38 @@ class App extends Component {
   }
 
   componentWillMount() {
+    document.addEventListener('keydown', this.handleClearClick);
+
     const keyDown$ = Kefir.fromEvents(document, `mousedown`)
       .map(_ => ({
-        action: 'D',
+        action: DOWN,
         timestamp: Date.now()
       }));
     const keyUp$ = Kefir.fromEvents(document, `mouseup`)
       .map(_ => ({
-        action: 'U',
+        action: UP,
         timestamp: Date.now()
       }));
     const action$ = keyDown$.merge(keyUp$);
-    const longPauses$ = action$.debounce(DOT_DURATION * 3).filter(e => e.action === 'U');
+    action$.onValue(e => {
+      const isKeyPressed = e.action === DOWN;
+
+      this.setState({
+        ...this.state,
+        isKeyPressed,
+      })
+    });
+    const longPauses$ = action$.debounce(DOT_DURATION * 3).filter(e => e.action === UP);
 
     const symbolDelay$ = keyDown$
       .flatMapLatest(start => keyUp$.map(end => end.timestamp - start.timestamp));
 
     const symbol$ = symbolDelay$.map(getSymbol);
     symbol$.bufferBy(longPauses$).onValue(this.updateWord);
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.handleClearClick);
   }
 
   updateWord(letterCode) {
@@ -63,8 +78,10 @@ class App extends Component {
     });
   }
 
-  handleClearClick() {
-    this.setState(INITIAL_STATE);
+  handleClearClick(e) {
+    if(isNeededKey(e)) {
+      this.setState(INITIAL_STATE);
+    }
   }
 
   render() {
@@ -75,18 +92,16 @@ class App extends Component {
 
     return (
       <div className="App">
-        <h1>Use SPACE button for Morzing</h1>
+        <h1>Use mouse button for Morzing</h1>
         <img
           src={morse}
           alt="morse code"
           width="300"
         />
         <br/>
+        <h2>Use SPACE button for clearing</h2>
         <div className={`rectangle ${rectClassName}`} />
         <br/>
-        <button onClick={this.handleClearClick}>
-          Clear
-        </button>
         <h2>{ word }</h2>
       </div>
     );
