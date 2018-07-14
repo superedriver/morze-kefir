@@ -15,7 +15,26 @@ const UP = 'U';
 
 // additional code
 const getSymbol = symbolDuration => symbolDuration <= DOT_DURATION ? DOT : DASH;
-const isNeededKey = ({ keyCode }) => keyCode === BUTTON_CODE;
+const isClearButton = ({ keyCode }) => keyCode === BUTTON_CODE;
+
+let keyDown$ = Kefir.fromEvents(document, `mousedown`)
+  .map(_ => ({
+    action: DOWN,
+    timestamp: Date.now()
+  }));
+let keyUp$ = Kefir.fromEvents(document, `mouseup`)
+  .map(_ => ({
+    action: UP,
+    timestamp: Date.now()
+  }));
+const action$ = keyDown$.merge(keyUp$);
+
+const longPauses$ = action$.debounce(DOT_DURATION * 3).filter(e => e.action === UP);
+
+const symbolDelay$ = keyDown$
+  .flatMapLatest(start => keyUp$.map(end => end.timestamp - start.timestamp));
+
+const symbol$ = symbolDelay$.map(getSymbol);
 
 const INITIAL_STATE = {
   word: '',
@@ -36,17 +55,6 @@ class App extends Component {
   componentWillMount() {
     document.addEventListener('keydown', this.handleClearClick);
 
-    const keyDown$ = Kefir.fromEvents(document, `mousedown`)
-      .map(_ => ({
-        action: DOWN,
-        timestamp: Date.now()
-      }));
-    const keyUp$ = Kefir.fromEvents(document, `mouseup`)
-      .map(_ => ({
-        action: UP,
-        timestamp: Date.now()
-      }));
-    const action$ = keyDown$.merge(keyUp$);
     action$.onValue(e => {
       const isKeyPressed = e.action === DOWN;
 
@@ -55,17 +63,14 @@ class App extends Component {
         isKeyPressed,
       })
     });
-    const longPauses$ = action$.debounce(DOT_DURATION * 3).filter(e => e.action === UP);
 
-    const symbolDelay$ = keyDown$
-      .flatMapLatest(start => keyUp$.map(end => end.timestamp - start.timestamp));
-
-    const symbol$ = symbolDelay$.map(getSymbol);
     symbol$.bufferBy(longPauses$).onValue(this.updateWord);
   }
 
   componentWillUnmount() {
     document.removeEventListener('keydown', this.handleClearClick);
+    keyDown$ = null;
+    keyUp$ = null;
   }
 
   updateWord(letterCode) {
@@ -79,7 +84,7 @@ class App extends Component {
   }
 
   handleClearClick(e) {
-    if(isNeededKey(e)) {
+    if(isClearButton(e)) {
       this.setState(INITIAL_STATE);
     }
   }
