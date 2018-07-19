@@ -3,6 +3,11 @@ export const DASH = '-';
 export const ERROR = '_';
 export const DOT_DURATION = 300;
 export const BUTTON_CODE = 32; // SPACE Button
+export const DOWN = 'D';
+export const UP = 'U';
+export const SEED = {
+  word: '',
+};
 
 export const CODE_TO_LETTER = {
   '.-': 'A',
