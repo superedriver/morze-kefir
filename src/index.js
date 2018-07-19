@@ -52,7 +52,8 @@ const letter$ = symbol$.bufferBy(longPauses$);
 const handleUpdateWord$ = makeStore(
   letter$.map(
     letterCode => store => {
-      const word = store.word + CODE_TO_LETTER[letterCode.join('')];
+      const letter = CODE_TO_LETTER[letterCode.join('')] || ERROR;
+      const word = store.word + letter;
 
       return { word }
     }
