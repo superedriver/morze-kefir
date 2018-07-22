@@ -1,5 +1,5 @@
-Converting Morse code 
+Converting Morse code from mouse button
 
-npm start
+$ npm install
 
-npm install
+$ npm start
