@@ -4,69 +4,75 @@ import Kefir from 'kefir';
 
 import './index.css';
 import App from './components/App';
+import connect from './connect';
 import registerServiceWorker from './registerServiceWorker';
 
 import {
+  getSymbol,
+  isClearButton,
+  makeStore,
+} from "./helpers";
+
+import {
   CODE_TO_LETTER,
-  DOT,
-  DASH,
   ERROR,
   DOT_DURATION,
-  BUTTON_CODE,
   DOWN,
   UP,
   SEED,
 } from './constants';
 
-// additional code
-const getSymbol = symbolDuration => symbolDuration <= DOT_DURATION ? DOT : DASH;
-const isClearButton = ({ keyCode }) => keyCode === BUTTON_CODE;
-
-const makeStore = fn$ => {
-  return fn$
-    .scan((state, fn) => fn(state), SEED)
-    .skipDuplicates();
-};
-
-let keyDown$ = Kefir.fromEvents(document, `mousedown`)
+const keyDown$ = Kefir.fromEvents(document, `mousedown`)
   .map(_ => ({
     action: DOWN,
     timestamp: Date.now()
   }));
-let keyUp$ = Kefir.fromEvents(document, `mouseup`)
+//---D-----D---------------D--
+
+const keyUp$ = Kefir.fromEvents(document, `mouseup`)
   .map(_ => ({
     action: UP,
     timestamp: Date.now()
   }));
+//------U-----------U--------U---
+
+const clearPressed$ = Kefir.fromEvents(document, `keyup`)
+  .filter(isClearButton);
+//------------------------------SPACE--
+
 const action$ = keyDown$.merge(keyUp$);
+//---D-U---D-------U-------D-U---
 
 const longPauses$ = action$.debounce(DOT_DURATION * 3).filter(e => e.action === UP);
+//-------------------------true------
 
 const symbolDelay$ = keyDown$
   .flatMapLatest(start => keyUp$.map(end => end.timestamp - start.timestamp));
+//------100-----------400------100---
 
 const symbol$ = symbolDelay$.map(getSymbol);
+//---------'.'----------'-'------'.'---
 
-const letter$ = symbol$.bufferBy(longPauses$);
+const letter$ = symbol$.bufferBy(longPauses$)
+  .map(letterCode => CODE_TO_LETTER[letterCode.join('')] || ERROR);
+//--------------------------['.','-']-['.']--------
+//-----------------------------------'A'---'E'--------
 
-const handleUpdateWord$ = makeStore(
-  letter$.map(
-    letterCode => store => {
-      const letter = CODE_TO_LETTER[letterCode.join('')] || ERROR;
-      const word = store.word + letter;
+const word$ = makeStore(Kefir.merge([
+  letter$.map(letter => store => ({ word: store.word + letter })),
+  clearPressed$.map(_ => _ => SEED)
+]));
+//------{ word: 'A'}------{ word: 'AE' }------{ word: '' }--
 
-      return { word }
-    }
-  )
-);
+const isKeyPressed$ = action$.map(e => ({ isKeyPressed: e.action === DOWN }));
+//---{ isKeyPressed: true }----{ isKeyPressed: false }---
 
-handleUpdateWord$.log("handleUpdateWord$");
+const observesToConnect = [
+  word$,
+  isKeyPressed$
+];
 
-const isKeyPressed$ = action$.map(e => e.action === DOWN);
+const WrappedComponent = connect(observesToConnect, App);
 
-isKeyPressed$.log("isKeyPressed$");
-
-
-
-ReactDOM.render(<App />, document.getElementById('root'));
+ReactDOM.render(<WrappedComponent />, document.getElementById('root'));
 registerServiceWorker();
