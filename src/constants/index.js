@@ -9,9 +9,7 @@ export const DOWN = 'D';
 export const UP = 'U';
 
 // SEED
-export const SEED = {
-  word: '',
-};
+export const SEED = '';
 
 export const CODE_TO_LETTER = {
   '.-': 'A',

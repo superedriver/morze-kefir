@@ -40,10 +40,10 @@ const clearPressed$ = Kefir.fromEvents(document, `keyup`)
   .filter(isClearButton);
 //------------------------------SPACE--
 
-const action$ = keyDown$.merge(keyUp$);
+const keyEvent$ = keyDown$.merge(keyUp$);
 //---D-U---D-------U-------D-U---
 
-const longPauses$ = action$.debounce(DOT_DURATION * 3).filter(e => e.action === UP);
+const longPauses$ = keyEvent$.debounce(DOT_DURATION * 3).filter(e => e.action === UP);
 //-------------------------true------
 
 const symbolDelay$ = keyDown$
@@ -59,20 +59,20 @@ const letter$ = symbol$.bufferBy(longPauses$)
 //-----------------------------------'A'---'E'--------
 
 const word$ = makeStore(Kefir.merge([
-  letter$.map(letter => store => ({ word: store.word + letter })),
+  letter$.map(letter => word => word + letter),
   clearPressed$.map(_ => _ => SEED)
 ]));
-//------{ word: 'A'}------{ word: 'AE' }------{ word: '' }--
+//------------'A'---------'AE'----------''-----
 
-const isKeyPressed$ = action$.map(e => ({ isKeyPressed: e.action === DOWN }));
-//---{ isKeyPressed: true }----{ isKeyPressed: false }---
+const isKeyPressed$ = keyEvent$.map(e => e.action === DOWN);
+//----true----false--------true----------------false----
 
-const observesToConnect = [
+const observesToConnect = {
   word$,
   isKeyPressed$
-];
+};
 
-const WrappedComponent = connect(observesToConnect, App);
+const WrappedComponent = connect(Kefir.combine(observesToConnect), App);
 
 ReactDOM.render(<WrappedComponent />, document.getElementById('root'));
 registerServiceWorker();

@@ -5,9 +5,9 @@ import morse from '../morze.png'
 class App extends Component {
 
   render() {
-    const { isKeyPressed, word } = this.props;
+    const { isKeyPressed$, word$ } = this.props;
 
-    const rectClassName = isKeyPressed
+    const rectClassName = isKeyPressed$
       ? '-red'
       : '-green';
 
@@ -23,7 +23,7 @@ class App extends Component {
         <h2>Use SPACE button for clearing</h2>
         <div className={`rectangle ${rectClassName}`} />
         <br/>
-        <h2>{ word }</h2>
+        <h2>{ word$ }</h2>
       </div>
     );
   }
