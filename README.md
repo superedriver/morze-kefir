@@ -13,6 +13,6 @@ To use it:
 
 `$ npm start`
 
-Application will appear on http://localhost:3000 and will have the next view.
+Application will appear on http://localhost:3000 and will have the next view:
 
 ![GitHub Logo](readme_img.png)
